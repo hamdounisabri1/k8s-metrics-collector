@@ -1,0 +1,674 @@
+<div class="cost-container">
+  <!-- Header Section -->
+  <div class="cost-header">
+    <div class="header-content">
+      <div class="header-info">
+        <h1 class="header-title">
+          <i class="fas fa-euro-sign"></i> Cost Analysis Dashboard
+        </h1>
+        <p class="header-subtitle">Track and optimize your Kubernetes infrastructure costs</p>
+      </div>
+
+      <!-- Header Actions -->
+      <div class="header-actions">
+        <!-- Refresh Button -->
+        <button class="btn-refresh" (click)="refreshData()" [disabled]="(loading$ | async)">
+          <i class="fas fa-sync-alt" [class.spinning]="(loading$ | async)"></i>
+          Refresh
+        </button>
+
+        <!-- Simulator Button -->
+        <button class="btn-simulator" (click)="toggleSimulator()">
+          <i class="fas fa-calculator"></i>
+          Cost Calculator
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div class="loading-overlay" *ngIf="(loading$ | async)">
+    <div class="spinner">
+      <div class="spinner-circle"></div>
+      <p>Loading cost data...</p>
+    </div>
+  </div>
+
+  <!-- Cost Overview Stats Section -->
+  <section class="overview-section" *ngIf="overview">
+    <h2 class="section-title">
+      <i class="fas fa-chart-pie"></i> Cost Overview
+    </h2>
+
+    <div class="stats-grid">
+      <!-- Total Cost Stat Card -->
+      <div class="stat-card stat-card-primary">
+        <div class="stat-header">
+          <span class="stat-label">Total Cost</span>
+          <i class="fas fa-euro-sign stat-icon total"></i>
+        </div>
+        <div class="stat-value">{{ formatCurrency(overview.total_cost) }}</div>
+        <div class="stat-unit">{{ overview.range_minutes }} minutes</div>
+      </div>
+
+      <!-- CPU Cost -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">CPU Cost</span>
+          <i class="fas fa-microchip stat-icon cpu"></i>
+        </div>
+        <div class="stat-value">{{ formatCurrency(overview.cpu_cost) }}</div>
+        <div class="stat-subtext">
+          {{ getPercentageOfTotal(overview.cpu_cost, overview.total_cost) | number: '1.0-0' }}%
+        </div>
+      </div>
+
+      <!-- RAM Cost -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">RAM Cost</span>
+          <i class="fas fa-memory stat-icon ram"></i>
+        </div>
+        <div class="stat-value">{{ formatCurrency(overview.ram_cost) }}</div>
+        <div class="stat-subtext">
+          {{ getPercentageOfTotal(overview.ram_cost, overview.total_cost) | number: '1.0-0' }}%
+        </div>
+      </div>
+
+      <!-- Storage Cost -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Storage Cost</span>
+          <i class="fas fa-database stat-icon storage"></i>
+        </div>
+        <div class="stat-value">{{ formatCurrency(overview.storage_cost) }}</div>
+        <div class="stat-subtext">
+          {{ getPercentageOfTotal(overview.storage_cost, overview.total_cost) | number: '1.0-0' }}%
+        </div>
+      </div>
+
+      <!-- Billing Hours -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Billing Period</span>
+          <i class="fas fa-hourglass-end stat-icon hours"></i>
+        </div>
+        <div class="stat-value">{{ overview.hours | number: '1.0-1' }}</div>
+        <div class="stat-unit">Hours</div>
+      </div>
+
+      <!-- Daily Extrapolation -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Daily Cost (Est.)</span>
+          <i class="fas fa-calendar-day stat-icon daily"></i>
+        </div>
+        <div class="stat-value">
+          {{ formatCurrency((overview.total_cost / overview.hours) * 24) }}
+        </div>
+        <div class="stat-unit">Per day</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- No Data Message -->
+<section class="no-data-section" *ngIf="!overview">
+  <div class="no-data-container">
+    <i class="fas fa-inbox"></i>
+    <h3>No Data Found</h3>
+    <p>No cost data available for the selected time range</p>
+    <p class="data-hint">Try selecting a shorter time period (1 Hour, 4 Hours, or 24 Hours)</p>
+  </div>
+</section>
+
+  <!-- Time Range Controls -->
+  <section class="range-controls-section">
+    <div class="control-group">
+      <label>Time Range:</label>
+      <div class="range-buttons">
+        <button
+          class="range-btn"
+          [class.active]="rangeMinutes === 60"
+          (click)="updateChartRange(60)"
+        >
+          1 Hour
+        </button>
+        <button
+          class="range-btn"
+          [class.active]="rangeMinutes === 240"
+          (click)="updateChartRange(240)"
+        >
+          4 Hours
+        </button>
+        <button
+          class="range-btn"
+          [class.active]="rangeMinutes === 1440"
+          (click)="updateChartRange(1440)"
+        >
+          24 Hours
+        </button>
+        <button
+  class="range-btn"
+  [class.active]="rangeMinutes === 4320"
+  (click)="updateChartRange(4320)"
+>
+  3 Days
+</button>
+
+<button
+  class="range-btn"
+  [class.active]="rangeMinutes === 10080"
+  (click)="updateChartRange(10080)"
+>
+  7 Days
+</button>
+
+<button
+  class="range-btn"
+  [class.active]="rangeMinutes === 20160"
+  (click)="updateChartRange(20160)"
+>
+  2 Weeks
+</button>
+
+<button
+  class="range-btn"
+  [class.active]="rangeMinutes === 43200"
+  (click)="updateChartRange(43200)"
+>
+  1 Month
+</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Nodes Cost Section -->
+  <section class="nodes-section">
+    <h2 class="section-title">
+      <i class="fas fa-server"></i> Nodes Cost
+    </h2>
+
+    <div class="table-card">
+      <table class="cost-table" *ngIf="nodesCostFiltered.length > 0; else noNodesTemplate">
+        <thead>
+          <tr>
+            <th (click)="sortNodes('node')" class="sortable">
+              Node Name
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('cpu_cores')" class="sortable">
+              CPU (Cores)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('ram_gb')" class="sortable">
+              RAM (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('storage_gb')" class="sortable">
+              Storage (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('cpu_cost')" class="sortable">
+              CPU Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('ram_cost')" class="sortable">
+              RAM Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('storage_cost')" class="sortable">
+              Storage Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('total_cost')" class="sortable">
+              Total Cost
+              <i class="fas fa-sort"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let node of nodesCostFiltered" class="table-row">
+            <td class="node-name">
+              <i class="fas fa-server"></i> {{ node.node }}
+            </td>
+            <td>{{ formatNumber(node.cpu_cores) }}</td>
+            <td>{{ formatNumber(node.ram_gb) }}</td>
+            <td>{{ formatNumber(node.storage_gb) }}</td>
+            <td class="cost-value cpu-cost">{{ formatCurrency(node.cpu_cost) }}</td>
+            <td class="cost-value ram-cost">{{ formatCurrency(node.ram_cost) }}</td>
+            <td class="cost-value storage-cost">{{ formatCurrency(node.storage_cost) }}</td>
+            <td class="cost-value total-cost">
+              <strong>{{ formatCurrency(node.total_cost) }}</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noNodesTemplate>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No nodes cost data available</p>
+        </div>
+      </ng-template>
+    </div>
+  </section>
+
+  <!-- Namespaces Cost Section -->
+  <section class="namespaces-section">
+    <h2 class="section-title">
+      <i class="fas fa-layer-group"></i> Namespaces Cost
+    </h2>
+
+    <div class="table-card">
+      <table class="cost-table" *ngIf="namespacesCostFiltered.length > 0; else noNamespacesTemplate">
+        <thead>
+          <tr>
+            <th (click)="sortNamespaces('namespace')" class="sortable">
+              Namespace
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('cpu_cores')" class="sortable">
+              CPU (Cores)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('ram_gb')" class="sortable">
+              RAM (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('storage_gb')" class="sortable">
+              Storage (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('cpu_cost')" class="sortable">
+              CPU Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('ram_cost')" class="sortable">
+              RAM Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('storage_cost')" class="sortable">
+              Storage Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('total_cost')" class="sortable">
+              Total Cost
+              <i class="fas fa-sort"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ns of namespacesCostFiltered" class="table-row">
+            <td class="namespace-name">
+              <i class="fas fa-layer-group"></i> {{ ns.namespace }}
+            </td>
+            <td>{{ formatNumber(ns.cpu_cores) }}</td>
+            <td>{{ formatNumber(ns.ram_gb) }}</td>
+            <td>{{ formatNumber(ns.storage_gb) }}</td>
+            <td class="cost-value cpu-cost">{{ formatCurrency(ns.cpu_cost) }}</td>
+            <td class="cost-value ram-cost">{{ formatCurrency(ns.ram_cost) }}</td>
+            <td class="cost-value storage-cost">{{ formatCurrency(ns.storage_cost) }}</td>
+            <td class="cost-value total-cost">
+              <strong>{{ formatCurrency(ns.total_cost) }}</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noNamespacesTemplate>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No namespaces cost data available</p>
+        </div>
+      </ng-template>
+    </div>
+  </section>
+
+  <!-- Pods Cost Section -->
+  <section class="pods-section">
+    <h2 class="section-title">
+      <i class="fas fa-cube"></i> Pods Cost
+      <span class="section-count" *ngIf="podsCostFiltered.length > 0">
+        ({{ podsCostFiltered.length }})
+      </span>
+    </h2>
+
+    <!-- Filter Controls -->
+    <div class="filter-controls">
+      <div class="filter-group">
+        <label for="namespace-filter">Filter by Namespace:</label>
+        <select
+          id="namespace-filter"
+          class="filter-select"
+          (change)="onNamespaceFilterChange($event)"
+          [value]="podNamespaceFilter"
+        >
+          <option value="">All Namespaces</option>
+          <option *ngFor="let ns of getUniqueNamespaces()" [value]="ns">
+            {{ ns }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Page Size Info -->
+      <div class="filter-group" *ngIf="podsCostFiltered.length > 0">
+        <span class="pagination-info">
+          Showing {{ (podsCurrentPage - 1) * podsPageSize + 1 }} -
+          {{ Math.min(podsCurrentPage * podsPageSize, podsCostFiltered.length) }} of
+          {{ podsCostFiltered.length }} pods
+        </span>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <table class="cost-table" *ngIf="podsPagedData.length > 0; else noPodsTemplate">
+        <thead>
+          <tr>
+            <th (click)="sortPods('pod')" class="sortable">
+              Pod Name
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('namespace')" class="sortable">
+              Namespace
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('node')" class="sortable">
+              Node
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('cpu_cost')" class="sortable">
+              CPU Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('ram_cost')" class="sortable">
+              RAM Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('storage_cost')" class="sortable">
+              Storage Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('total_cost')" class="sortable">
+              Total Cost
+              <i class="fas fa-sort"></i>
+            </th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let pod of podsPagedData" class="table-row">
+            <td class="pod-name">
+              <i class="fas fa-cube"></i> {{ pod.pod }}
+            </td>
+            <td>{{ pod.namespace }}</td>
+            <td>{{ pod.node }}</td>
+            <td class="cost-value cpu-cost">{{ formatCurrency(pod.cpu_cost) }}</td>
+            <td class="cost-value ram-cost">{{ formatCurrency(pod.ram_cost) }}</td>
+            <td class="cost-value storage-cost">{{ formatCurrency(pod.storage_cost) }}</td>
+            <td class="cost-value total-cost">
+              <strong>{{ formatCurrency(pod.total_cost) }}</strong>
+            </td>
+            <td>
+              <button class="btn-action" (click)="fetchPodHistory(pod)" title="View cost history">
+                <i class="fas fa-history"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noPodsTemplate>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>
+            {{ podNamespaceFilter ? 'No pods found in this namespace' : 'No pods cost data available' }}
+          </p>
+        </div>
+      </ng-template>
+
+      <!-- Pagination Controls -->
+      <div class="pagination" *ngIf="podsTotalPages > 1">
+        <button
+          class="pagination-btn prev-btn"
+          (click)="previousPodsPage()"
+          [disabled]="podsCurrentPage === 1"
+          title="Previous page"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <div class="pagination-numbers">
+          <button
+            *ngIf="getPodsPageNumbers()[0] > 1"
+            class="pagination-btn"
+            (click)="goToPodsPage(1)"
+          >
+            1
+          </button>
+
+          <span *ngIf="getPodsPageNumbers()[0] > 2" class="pagination-ellipsis">
+            ...
+          </span>
+
+          <button
+            *ngFor="let page of getPodsPageNumbers()"
+            class="pagination-btn"
+            [class.active]="page === podsCurrentPage"
+            (click)="goToPodsPage(page)"
+          >
+            {{ page }}
+          </button>
+
+          <span
+            *ngIf="getPodsPageNumbers()[getPodsPageNumbers().length - 1] < podsTotalPages - 1"
+            class="pagination-ellipsis"
+          >
+            ...
+          </span>
+
+          <button
+            *ngIf="getPodsPageNumbers()[getPodsPageNumbers().length - 1] < podsTotalPages"
+            class="pagination-btn"
+            (click)="goToPodsPage(podsTotalPages)"
+          >
+            {{ podsTotalPages }}
+          </button>
+        </div>
+
+        <button
+          class="pagination-btn next-btn"
+          (click)="nextPodsPage()"
+          [disabled]="podsCurrentPage === podsTotalPages"
+          title="Next page"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top Pods Cost Section -->
+  <section class="top-pods-section">
+    <h2 class="section-title">
+      <i class="fas fa-trophy"></i> Most Expensive Pods
+    </h2>
+
+    <div class="top-pods-card">
+      <div class="top-pods-list">
+        <div
+          *ngFor="let pod of topPodsCost; let i = index"
+          class="top-pod-item"
+          [style.animation-delay]="i * 0.05 + 's'"
+        >
+          <div class="rank">{{ i + 1 }}</div>
+          <div class="pod-info">
+            <div class="pod-title">{{ pod.pod }}</div>
+            <div class="pod-namespace">{{ pod.namespace }}</div>
+            <div class="pod-cost-breakdown">
+              <span class="cost-item cpu">CPU: {{ formatCurrency(pod.cpu_cost) }}</span>
+              <span class="cost-item ram">RAM: {{ formatCurrency(pod.ram_cost) }}</span>
+              <span class="cost-item storage">Storage: {{ formatCurrency(pod.storage_cost) }}</span>
+            </div>
+          </div>
+          <div class="pod-value">
+            {{ formatCurrency(pod.total_cost) }}
+            <span class="unit">total</span>
+          </div>
+        </div>
+        <div *ngIf="topPodsCost.length === 0" class="empty-top-pods">
+          <i class="fas fa-inbox"></i>
+          <p>No data</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cost Simulator Section -->
+  <section class="simulator-section" *ngIf="showSimulator">
+    <h2 class="section-title">
+      <i class="fas fa-calculator"></i> Cost Calculator
+    </h2>
+
+    <div class="simulator-card">
+      <div class="simulator-form">
+        <div class="form-group">
+          <label for="cpu-input">CPU Cores:</label>
+          <input
+            id="cpu-input"
+            type="number"
+            [(ngModel)]="simulatorInputs.cpu_cores"
+            min="0.1"
+            step="0.1"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="ram-input">RAM (GB):</label>
+          <input
+            id="ram-input"
+            type="number"
+            [(ngModel)]="simulatorInputs.ram_gb"
+            min="0.1"
+            step="0.1"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="storage-input">Storage (GB):</label>
+          <input
+            id="storage-input"
+            type="number"
+            [(ngModel)]="simulatorInputs.storage_gb"
+            min="0.1"
+            step="0.1"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="hours-input">Hours:</label>
+          <input
+            id="hours-input"
+            type="number"
+            [(ngModel)]="simulatorInputs.hours"
+            min="1"
+            step="1"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-primary" (click)="runSimulation()">
+            <i class="fas fa-play"></i> Calculate Cost
+          </button>
+          <button class="btn-secondary" (click)="resetSimulator()">
+            <i class="fas fa-redo"></i> Reset
+          </button>
+          <button class="btn-secondary" (click)="toggleSimulator()">
+            <i class="fas fa-times"></i> Close
+          </button>
+        </div>
+      </div>
+
+      <!-- Simulation Results -->
+      <div class="simulator-results" *ngIf="simulatorResult">
+        <h3 class="results-title">Calculation Results</h3>
+
+        <div class="results-grid">
+          <div class="result-card">
+            <div class="result-label">Total Cost</div>
+            <div class="result-value total">{{ formatCurrency(simulatorResult.total_cost) }}</div>
+          </div>
+
+          <div class="result-card">
+            <div class="result-label">CPU Cost</div>
+            <div class="result-value cpu">{{ formatCurrency(simulatorResult.cpu_cost) }}</div>
+          </div>
+
+          <div class="result-card">
+            <div class="result-label">RAM Cost</div>
+            <div class="result-value ram">{{ formatCurrency(simulatorResult.ram_cost) }}</div>
+          </div>
+
+          <div class="result-card">
+            <div class="result-label">Storage Cost</div>
+            <div class="result-value storage">{{ formatCurrency(simulatorResult.storage_cost) }}</div>
+          </div>
+        </div>
+
+        <div class="prices-used">
+          <p class="prices-title">Prices Used:</p>
+          <ul class="prices-list">
+            <li>CPU: {{ formatCurrency(simulatorResult.prices_used.cpu_core_price_per_hour) }}/core/hour</li>
+            <li>RAM: {{ formatCurrency(simulatorResult.prices_used.ram_gb_price_per_hour) }}/GB/hour</li>
+            <li>Storage: {{ formatCurrency(simulatorResult.prices_used.storage_gb_price_per_hour) }}/GB/hour</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pod Cost History Modal -->
+  <div class="modal-overlay" *ngIf="showPodHistoryModal" (click)="closePodHistory()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-history"></i> Cost History - {{ selectedPodName }}
+        </h3>
+        <button class="btn-close" (click)="closePodHistory()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>CPU Cores</th>
+              <th>RAM (GB)</th>
+              <th>Storage (GB)</th>
+              <th>CPU Cost</th>
+              <th>RAM Cost</th>
+              <th>Storage Cost</th>
+              <th>Total Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let point of selectedPodHistory" class="history-row">
+              <td>{{ point.time ? (point.time | date: 'short') : 'N/A' }}</td>
+              <td>{{ formatNumber(point.cpu_cores) }}</td>
+              <td>{{ formatNumber(point.ram_gb) }}</td>
+              <td>{{ formatNumber(point.storage_gb) }}</td>
+              <td class="cost-value cpu-cost">{{ formatCurrency(point.cpu_cost) }}</td>
+              <td class="cost-value ram-cost">{{ formatCurrency(point.ram_cost) }}</td>
+              <td class="cost-value storage-cost">{{ formatCurrency(point.storage_cost) }}</td>
+              <td class="cost-value total-cost">
+                <strong>{{ formatCurrency(point.total_cost) }}</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

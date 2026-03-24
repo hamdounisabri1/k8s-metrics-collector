@@ -1,0 +1,535 @@
+<div class="metrics-container">
+  <!-- Header Section -->
+  <div class="metrics-header">
+    <div class="header-content">
+      <div class="header-info">
+        <h1 class="header-title">
+          <i class="fas fa-chart-bar"></i> Kubernetes Metrics Dashboard
+        </h1>
+        <p class="header-subtitle">Real-time cluster monitoring and analytics</p>
+      </div>
+
+      <!-- Status & Refresh -->
+      <div class="header-actions">
+        <!-- Health Status -->
+        <div class="status-badge" *ngIf="health">
+          <span [class]="'badge ' + getStatusBadgeClass(health.status)">
+            <i class="fas fa-heartbeat"></i> {{ health.status | uppercase }}
+          </span>
+          <span class="status-time">{{ health.timestamp | date: 'short' }}</span>
+        </div>
+
+        <!-- Refresh Button -->
+        <button class="btn-refresh" (click)="refreshData()" [disabled]="(loading$ | async)">
+          <i class="fas fa-sync-alt" [class.spinning]="(loading$ | async)"></i>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div class="loading-overlay" *ngIf="(loading$ | async)">
+    <div class="spinner">
+      <div class="spinner-circle"></div>
+      <p>Loading metrics...</p>
+    </div>
+  </div>
+
+  <!-- Overview Stats Section -->
+  <section class="overview-section" *ngIf="overview">
+    <h2 class="section-title">
+      <i class="fas fa-tachometer-alt"></i> Cluster Overview
+    </h2>
+
+    <div class="stats-grid">
+      <!-- CPU Stat Card -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Total CPU</span>
+          <i class="fas fa-microchip stat-icon cpu"></i>
+        </div>
+        <div class="stat-value">{{ formatNumber(overview.cpu_cores) }}</div>
+        <div class="stat-unit">Cores</div>
+      </div>
+
+      <!-- RAM Stat Card -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Total RAM</span>
+          <i class="fas fa-memory stat-icon ram"></i>
+        </div>
+        <div class="stat-value">{{ formatNumber(overview.ram_gb) }}</div>
+        <div class="stat-unit">GB</div>
+      </div>
+
+      <!-- Storage Stat Card -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Total Storage</span>
+          <i class="fas fa-database stat-icon storage"></i>
+        </div>
+        <div class="stat-value">{{ formatNumber(overview.storage_gb) }}</div>
+        <div class="stat-unit">GB</div>
+      </div>
+
+      <!-- Nodes Count -->
+<div class="stat-card">
+  <div class="stat-header">
+    <span class="stat-label">Nodes</span>
+    <i class="fas fa-server stat-icon nodes"></i>
+  </div>
+  <div class="stat-value">
+    {{ (overview.nodes ?? 0) - 1 }}
+  </div>
+  <div class="stat-unit">Active</div>
+</div>
+
+      <!-- Namespaces Count -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Namespaces</span>
+          <i class="fas fa-layer-group stat-icon namespaces"></i>
+        </div>
+        <div class="stat-value">{{ overview.namespaces !== null ? overview.namespaces : 'N/A' }}</div>
+        <div class="stat-unit">Total</div>
+      </div>
+
+      <!-- Pods Count -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Pods</span>
+          <i class="fas fa-cube stat-icon pods"></i>
+        </div>
+        <div class="stat-value">{{ overview.pods !== null ? overview.pods : 'N/A' }}</div>
+        <div class="stat-unit">Running</div>
+      </div>
+    </div>
+  </section>
+   <!-- Timeseries Charts Section -->
+  <section class="charts-section" *ngIf="chartReady">
+    <h2 class="section-title">
+      <i class="fas fa-chart-line"></i> Resource Trends
+      <span class="section-count">(Last {{ rangeMinutes }} minutes)</span>
+    </h2>
+
+    <!-- Chart Controls -->
+    <div class="chart-controls">
+      <div class="control-group">
+        <label>Time Range:</label>
+        <div class="range-buttons">
+          <button
+            class="range-btn"
+            [class.active]="rangeMinutes === 60"
+            (click)="updateChartRange(60)"
+          >
+            1 Hour
+          </button>
+          <button
+            class="range-btn"
+            [class.active]="rangeMinutes === 240"
+            (click)="updateChartRange(240)"
+          >
+            4 Hours
+          </button>
+          <button
+            class="range-btn"
+            [class.active]="rangeMinutes === 1440"
+            (click)="updateChartRange(1440)"
+          >
+            24 Hours
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Stack -->
+    <div class="charts-stack">
+      <!-- CPU Chart -->
+      <div class="chart-card" *ngIf="cpuChartData">
+        <h3 class="chart-title">
+          <i class="fas fa-microchip"></i> CPU Usage Over Time
+        </h3>
+        <div class="chart-container">
+          <canvas
+            baseChart
+            type="line"
+            [data]="cpuChartData"
+            [options]="cpuChartOptions"
+          ></canvas>
+        </div>
+      </div>
+
+      <!-- RAM Chart -->
+      <div class="chart-card" *ngIf="ramChartData">
+        <h3 class="chart-title">
+          <i class="fas fa-memory"></i> RAM Usage Over Time
+        </h3>
+        <div class="chart-container">
+          <canvas
+            baseChart
+            type="line"
+            [data]="ramChartData"
+            [options]="ramChartOptions"
+          ></canvas>
+        </div>
+      </div>
+
+      <!-- Storage Chart -->
+      <div class="chart-card" *ngIf="storageChartData">
+        <h3 class="chart-title">
+          <i class="fas fa-database"></i> Storage Usage Over Time
+        </h3>
+        <div class="chart-container">
+          <canvas
+            baseChart
+            type="line"
+            [data]="storageChartData"
+            [options]="storageChartOptions"
+          ></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Nodes Section -->
+  <section class="nodes-section">
+    <h2 class="section-title">
+      <i class="fas fa-server"></i> Nodes
+    </h2>
+
+    <div class="table-card">
+      <table class="metrics-table" *ngIf="nodesFiltered.length > 0; else noNodesTemplate">
+        <thead>
+          <tr>
+            <th (click)="sortNodes('node')" class="sortable">
+              Node Name
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('cpu_cores')" class="sortable">
+              CPU (Cores)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('ram_gb')" class="sortable">
+              RAM (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNodes('storage_gb')" class="sortable">
+              Storage (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th>Pods</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let node of nodesFiltered" class="table-row">
+            <td class="node-name">
+              <i class="fas fa-server"></i> {{ node.node }}
+            </td>
+            <td>{{ formatNumber(node.cpu_cores) }}</td>
+            <td>{{ formatNumber(node.ram_gb) }}</td>
+            <td>{{ formatNumber(node.storage_gb) }}</td>
+            <td>{{ getPodCountByNode(node.node) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noNodesTemplate>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No nodes data available</p>
+        </div>
+      </ng-template>
+    </div>
+  </section>
+
+  <!-- Namespaces Section -->
+  <section class="namespaces-section">
+    <h2 class="section-title">
+      <i class="fas fa-layer-group"></i> Namespaces
+    </h2>
+
+    <div class="table-card">
+      <table class="metrics-table" *ngIf="namespacesFiltered.length > 0; else noNamespacesTemplate">
+        <thead>
+          <tr>
+            <th (click)="sortNamespaces('namespace')" class="sortable">
+              Namespace
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('cpu_cores')" class="sortable">
+              CPU (Cores)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('ram_gb')" class="sortable">
+              RAM (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortNamespaces('storage_gb')" class="sortable">
+              Storage (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th>Pods</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ns of namespacesFiltered" class="table-row">
+            <td class="namespace-name">
+              <i class="fas fa-layer-group"></i> {{ ns.namespace }}
+            </td>
+            <td>{{ formatNumber(ns.cpu_cores) }}</td>
+            <td>{{ formatNumber(ns.ram_gb) }}</td>
+            <td>{{ formatNumber(ns.storage_gb) }}</td>
+            <td>{{ getPodCountByNamespace(ns.namespace) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noNamespacesTemplate>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No namespaces data available</p>
+        </div>
+      </ng-template>
+    </div>
+  </section>
+
+  <!-- Pods Section -->
+  <section class="pods-section">
+    <h2 class="section-title">
+      <i class="fas fa-cube"></i> Pods
+      <span class="section-count" *ngIf="podsFiltered.length > 0">
+        ({{ podsFiltered.length }})
+      </span>
+    </h2>
+
+    <!-- Filter Controls -->
+    <div class="filter-controls">
+      <div class="filter-group">
+        <label for="namespace-filter">Filter by Namespace:</label>
+        <select
+          id="namespace-filter"
+          class="filter-select"
+          (change)="onNamespaceFilterChange($event)"
+          [value]="podNamespaceFilter"
+        >
+          <option value="">All Namespaces</option>
+          <option *ngFor="let ns of getUniqueNamespaces()" [value]="ns">
+            {{ ns }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Page Size Info -->
+      <div class="filter-group" *ngIf="podsFiltered.length > 0">
+        <span class="pagination-info">
+          Showing {{ (podsCurrentPage - 1) * podsPageSize + 1 }} -
+          {{ Math.min(podsCurrentPage * podsPageSize, podsFiltered.length) }} of
+          {{ podsFiltered.length }} pods
+        </span>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <table class="metrics-table" *ngIf="podsPagedData.length > 0; else noPodsTemplate">
+        <thead>
+          <tr>
+            <th (click)="sortPods('pod')" class="sortable">
+              Pod Name
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('namespace')" class="sortable">
+              Namespace
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('node')" class="sortable">
+              Node
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('cpu_cores')" class="sortable">
+              CPU (Cores)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('ram_gb')" class="sortable">
+              RAM (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortPods('storage_gb')" class="sortable">
+              Storage (GB)
+              <i class="fas fa-sort"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let pod of podsPagedData" class="table-row">
+            <td class="pod-name">
+              <i class="fas fa-cube"></i> {{ pod.pod }}
+            </td>
+            <td>{{ pod.namespace }}</td>
+            <td>{{ pod.node }}</td>
+            <td>{{ formatNumber(pod.cpu_cores) }}</td>
+            <td>{{ formatNumber(pod.ram_gb) }}</td>
+            <td>{{ formatNumber(pod.storage_gb) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #noPodsTemplate>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>
+            {{ podNamespaceFilter ? 'No pods found in this namespace' : 'No pods data available' }}
+          </p>
+        </div>
+      </ng-template>
+
+      <!-- Pagination Controls -->
+      <div class="pagination" *ngIf="podsTotalPages > 1">
+        <button
+          class="pagination-btn prev-btn"
+          (click)="previousPodsPage()"
+          [disabled]="podsCurrentPage === 1"
+          title="Previous page"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <div class="pagination-numbers">
+          <!-- First page button -->
+          <button
+            *ngIf="getPodsPageNumbers()[0] > 1"
+            class="pagination-btn"
+            (click)="goToPodsPage(1)"
+          >
+            1
+          </button>
+
+          <!-- Ellipsis -->
+          <span *ngIf="getPodsPageNumbers()[0] > 2" class="pagination-ellipsis">
+            ...
+          </span>
+
+          <!-- Page numbers -->
+          <button
+            *ngFor="let page of getPodsPageNumbers()"
+            class="pagination-btn"
+            [class.active]="page === podsCurrentPage"
+            (click)="goToPodsPage(page)"
+          >
+            {{ page }}
+          </button>
+
+          <!-- Ellipsis -->
+          <span
+            *ngIf="getPodsPageNumbers()[getPodsPageNumbers().length - 1] < podsTotalPages - 1"
+            class="pagination-ellipsis"
+          >
+            ...
+          </span>
+
+          <!-- Last page button -->
+          <button
+            *ngIf="getPodsPageNumbers()[getPodsPageNumbers().length - 1] < podsTotalPages"
+            class="pagination-btn"
+            (click)="goToPodsPage(podsTotalPages)"
+          >
+            {{ podsTotalPages }}
+          </button>
+        </div>
+
+        <button
+          class="pagination-btn next-btn"
+          (click)="nextPodsPage()"
+          [disabled]="podsCurrentPage === podsTotalPages"
+          title="Next page"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top Pods Section -->
+  <section class="top-pods-section">
+    <h2 class="section-title">
+      <i class="fas fa-trophy"></i> Top Pods
+    </h2>
+
+    <div class="top-pods-grid">
+      <!-- Top by CPU -->
+      <div class="top-pods-card">
+        <h3 class="top-pods-title">Top by CPU Usage</h3>
+        <div class="top-pods-list">
+          <div
+            *ngFor="let pod of topPodsByCPU; let i = index"
+            class="top-pod-item"
+            [style.animation-delay]="i * 0.05 + 's'"
+          >
+            <div class="rank">{{ i + 1 }}</div>
+            <div class="pod-info">
+              <div class="pod-title">{{ pod.pod }}</div>
+              <div class="pod-namespace">{{ pod.namespace }}</div>
+            </div>
+            <div class="pod-value">
+              {{ formatNumber(pod.cpu_cores) }}
+              <span class="unit">cores</span>
+            </div>
+          </div>
+          <div *ngIf="topPodsByCPU.length === 0" class="empty-top-pods">
+            <i class="fas fa-inbox"></i>
+            <p>No data</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top by RAM -->
+      <div class="top-pods-card">
+        <h3 class="top-pods-title">Top by RAM Usage</h3>
+        <div class="top-pods-list">
+          <div
+            *ngFor="let pod of topPodsByRAM; let i = index"
+            class="top-pod-item"
+            [style.animation-delay]="i * 0.05 + 's'"
+          >
+            <div class="rank">{{ i + 1 }}</div>
+            <div class="pod-info">
+              <div class="pod-title">{{ pod.pod }}</div>
+              <div class="pod-namespace">{{ pod.namespace }}</div>
+            </div>
+            <div class="pod-value">
+              {{ formatNumber(pod.ram_gb) }}
+              <span class="unit">GB</span>
+            </div>
+          </div>
+          <div *ngIf="topPodsByRAM.length === 0" class="empty-top-pods">
+            <i class="fas fa-inbox"></i>
+            <p>No data</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top by Storage -->
+      <div class="top-pods-card">
+        <h3 class="top-pods-title">Top by Storage Usage</h3>
+        <div class="top-pods-list">
+          <div
+            *ngFor="let pod of topPodsByStorage; let i = index"
+            class="top-pod-item"
+            [style.animation-delay]="i * 0.05 + 's'"
+          >
+            <div class="rank">{{ i + 1 }}</div>
+            <div class="pod-info">
+              <div class="pod-title">{{ pod.pod }}</div>
+              <div class="pod-namespace">{{ pod.namespace }}</div>
+            </div>
+            <div class="pod-value">
+              {{ formatNumber(pod.storage_gb) }}
+              <span class="unit">GB</span>
+            </div>
+          </div>
+          <div *ngIf="topPodsByStorage.length === 0" class="empty-top-pods">
+            <i class="fas fa-inbox"></i>
+            <p>No data</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

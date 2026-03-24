@@ -1,0 +1,307 @@
+/* ─────────────────────────────────────────
+   🎨 K8s Dashboard Global Theme
+   Inspired by Grafana / modern admin UI
+───────────────────────────────────────── */
+
+:root {
+  /* Primary colors */
+  --color-bg: #0f172a;
+  --color-sidebar: #111827;
+  --color-card: #1f2937;
+
+  /* Accent */
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+
+  /* Text */
+  --color-text: #e5e7eb;
+  --color-text-muted: #9ca3af;
+
+  /* Status */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  /* UI */
+  --border-radius: 12px;
+  --transition: all 0.2s ease;
+}
+
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Body */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+html, body {
+  height: 100%;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ─────────────────────────────────────────
+    Layout
+───────────────────────────────────────── */
+
+.layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background: var(--color-sidebar);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-y: auto;
+}
+
+/* Content */
+.content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background: #ffffff;
+  color: #1f2937;
+}
+
+/* ─────────────────────────────────────────
+    Sidebar Menu
+───────────────────────────────────────── */
+
+.logo {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu {
+  list-style: none;
+  flex: 1;
+}
+
+.menu li {
+  margin-bottom: 10px;
+}
+
+.menu a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--border-radius);
+  text-decoration: none;
+  color: var(--color-text-muted);
+  transition: var(--transition);
+}
+
+.menu a:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-text);
+}
+
+.menu a.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--color-primary);
+  border-left: 3px solid var(--color-primary);
+  padding-left: 9px;
+}
+
+.menu mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+/* ────────────────────���────────────────────
+    Cards (Reusable)
+───────────────────────────────────────── */
+
+.card {
+  background: var(--color-card);
+  padding: 20px;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.1);
+}
+
+/* Grid for dashboard */
+.grid {
+  display: grid;
+  gap: 20px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* ─────────────────────────────────────────
+   Metrics styles
+───────────────────────────────────────── */
+
+.metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-title {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: bold;
+  margin-top: 8px;
+  color: var(--color-text);
+}
+
+.metric-change {
+  font-size: 12px;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.metric-change.positive {
+  color: var(--color-success);
+}
+
+.metric-change.negative {
+  color: var(--color-danger);
+}
+
+/* ─────────────────────────────────────────
+    Buttons
+───────────────────────────────────────── */
+
+.btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-light);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.btn-secondary:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--color-primary);
+}
+
+/* ─────────────────────────────────────────
+    Responsive
+───────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    padding: 15px;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .logo {
+    margin-bottom: 0;
+    margin-right: 30px;
+  }
+
+  .menu {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+  }
+
+  .menu li {
+    margin-bottom: 0;
+  }
+
+  .menu a {
+    padding: 8px 10px;
+  }
+
+  .content {
+    padding: 15px;
+  }
+
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}

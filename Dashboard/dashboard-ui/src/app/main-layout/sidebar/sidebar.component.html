@@ -1,0 +1,38 @@
+<aside class="sidebar">
+  <!-- Logo Section -->
+  <div class="sidebar-logo">
+    <div class="logo-container">
+      <span class="logo-icon">☸</span>
+      <span class="logo-text">K8s Dashboard</span>
+    </div>
+  </div>
+
+  <!-- Navigation Menu -->
+  <nav class="sidebar-nav">
+    <ul class="nav-list">
+      <li *ngFor="let item of navItems" class="nav-item">
+        <a
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="nav-link"
+        >
+          <span class="nav-icon">
+            <i [class]="item.icon"></i>
+          </span>
+          <span class="nav-label">{{ item.label }}</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Footer Section -->
+  <div class="sidebar-footer">
+    <button class="footer-btn" (click)="onLogout()" title="Logout">
+      <span class="footer-icon">
+        <i class="fas fa-sign-out-alt"></i>
+      </span>
+      <span>Logout</span>
+    </button>
+  </div>
+</aside>

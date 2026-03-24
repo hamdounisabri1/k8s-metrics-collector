@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-collector
+  namespace: k8s-metrics
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: k8s-collector
+
+  template:
+    metadata:
+      labels:
+        app: k8s-collector
+
+    spec:
+      serviceAccountName: collector-sa
+
+      containers:
+      - name: collector
+        image: hamdounisabri/k8s-collector:latest
+
+        env:
+        - name: INFLUX_URL
+          value: "http://influxdb-influxdb2.k8s-metrics.svc.cluster.local:80"
+
+        - name: INFLUX_TOKEN
+          value: "9CqCMAr8fll3EyRiuVi2J0gRdh7RGwmL"
+
+        - name: INFLUX_ORG
+          value: "influxdata"
+
+        - name: INFLUX_BUCKET
+          value: "cluster_metrics"

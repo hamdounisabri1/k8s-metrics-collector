@@ -1,0 +1,543 @@
+<div class="pricing-container">
+  <!-- Header Section -->
+  <div class="pricing-header">
+    <div class="header-content">
+      <div class="header-info">
+        <h1 class="header-title">
+          <i class="fas fa-tag"></i> Pricing Management
+        </h1>
+        <p class="header-subtitle">
+          Configure resource pricing for cost calculations
+        </p>
+      </div>
+
+      <!-- Header Actions -->
+      <div class="header-actions">
+        <button
+          class="btn-refresh"
+          (click)="refreshData()"
+          [disabled]="(loading$ | async)"
+        >
+          <i class="fas fa-sync-alt" [class.spinning]="(loading$ | async)"></i>
+          Refresh
+        </button>
+
+        <button class="btn-bulk-update" (click)="openBulkUpdateModal()">
+          <i class="fas fa-edit"></i>
+          Bulk Update
+        </button>
+
+        <button class="btn-reset" (click)="openResetConfirmation()">
+          <i class="fas fa-redo"></i>
+          Reset to Defaults
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div class="loading-overlay" *ngIf="(loading$ | async)">
+    <div class="spinner">
+      <div class="spinner-circle"></div>
+      <p>Loading pricing data...</p>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" *ngIf="showToast">
+    <div class="toast" [class]="'toast-' + toastType">
+      <i
+        class="fas"
+        [ngClass]="{
+          'fa-check-circle': toastType === 'success',
+          'fa-exclamation-circle': toastType === 'error',
+          'fa-info-circle': toastType === 'info'
+        }"
+      ></i>
+      <span>{{ toastMessage }}</span>
+    </div>
+  </div>
+
+  <!-- Current Prices Section -->
+  <section class="prices-section" *ngIf="pricesLoaded && prices">
+    <h2 class="section-title">
+      <i class="fas fa-chart-line"></i> Current Prices
+    </h2>
+
+    <div class="prices-grid">
+      <!-- CPU Price Card -->
+      <div class="price-card">
+        <div class="card-header">
+          <div class="card-title">
+            <i
+              class="fas"
+              [ngClass]="
+                'fa-' + priceIcons['cpu_core_price_per_hour']
+              "
+            ></i>
+            {{ priceLabels['cpu_core_price_per_hour'] }}
+          </div>
+          <span class="price-unit">per core/hour</span>
+        </div>
+
+        <div class="card-value">
+          {{ formatCurrency(prices['cpu_core_price_per_hour']) }}
+        </div>
+
+        <div class="card-footer">
+          <button
+            class="btn-edit"
+            (click)="openUpdatePriceModal('cpu_core_price_per_hour')"
+          >
+            <i class="fas fa-pencil-alt"></i>
+            Edit
+          </button>
+        </div>
+      </div>
+
+      <!-- RAM Price Card -->
+      <div class="price-card">
+        <div class="card-header">
+          <div class="card-title">
+            <i class="fas" [ngClass]="'fa-' + priceIcons['ram_gb_price_per_hour']"></i>
+            {{ priceLabels['ram_gb_price_per_hour'] }}
+          </div>
+          <span class="price-unit">per GB/hour</span>
+        </div>
+
+        <div class="card-value">
+          {{ formatCurrency(prices['ram_gb_price_per_hour']) }}
+        </div>
+
+        <div class="card-footer">
+          <button
+            class="btn-edit"
+            (click)="openUpdatePriceModal('ram_gb_price_per_hour')"
+          >
+            <i class="fas fa-pencil-alt"></i>
+            Edit
+          </button>
+        </div>
+      </div>
+
+      <!-- Storage Price Card -->
+      <div class="price-card">
+        <div class="card-header">
+          <div class="card-title">
+            <i
+              class="fas"
+              [ngClass]="
+                'fa-' + priceIcons['storage_gb_price_per_hour']
+              "
+            ></i>
+            {{ priceLabels['storage_gb_price_per_hour'] }}
+          </div>
+          <span class="price-unit">per GB/hour</span>
+        </div>
+
+        <div class="card-value">
+          {{ formatCurrency(prices['storage_gb_price_per_hour']) }}
+        </div>
+
+        <div class="card-footer">
+          <button
+            class="btn-edit"
+            (click)="openUpdatePriceModal('storage_gb_price_per_hour')"
+          >
+            <i class="fas fa-pencil-alt"></i>
+            Edit
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing History Section -->
+  <section class="history-section">
+    <h2 class="section-title">
+      <i class="fas fa-history"></i> Pricing History
+    </h2>
+
+    <!-- Filter Controls -->
+    <div class="filter-controls">
+      <div class="filter-group">
+        <label for="history-key-filter">Filter by Price Type:</label>
+        <select
+          id="history-key-filter"
+          class="filter-select"
+          (change)="onHistoryKeyFilterChange($event)"
+          [value]="historyKeyFilter || ''"
+        >
+          <option value="">All Price Types</option>
+          <option value="cpu_core_price_per_hour">
+            {{ priceLabels['cpu_core_price_per_hour'] }}
+          </option>
+          <option value="ram_gb_price_per_hour">
+            {{ priceLabels['ram_gb_price_per_hour'] }}
+          </option>
+          <option value="storage_gb_price_per_hour">
+            {{ priceLabels['storage_gb_price_per_hour'] }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-group" *ngIf="priceHistoryFiltered.length > 0">
+        <span class="pagination-info">
+          Showing {{ (historyCurrentPage - 1) * historyPageSize + 1 }} -
+          {{ Math.min(historyCurrentPage * historyPageSize, priceHistoryFiltered.length) }}
+          of {{ priceHistoryFiltered.length }} entries
+        </span>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <table
+        class="history-table"
+        *ngIf="historyPagedData.length > 0; else noHistoryTemplate"
+      >
+        <thead>
+          <tr>
+            <th (click)="sortHistory('key')" class="sortable">
+              Price Type
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortHistory('old_value')" class="sortable">
+              Old Value
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortHistory('new_value')" class="sortable">
+              New Value
+              <i class="fas fa-sort"></i>
+            </th>
+            <th>Change</th>
+            <th (click)="sortHistory('changed_at')" class="sortable">
+              Changed At
+              <i class="fas fa-sort"></i>
+            </th>
+            <th (click)="sortHistory('changed_by')" class="sortable">
+              Changed By
+              <i class="fas fa-sort"></i>
+            </th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of historyPagedData" class="history-row">
+            <td class="price-key">{{ entry.key }}</td>
+            <td class="old-value">
+              {{
+                entry.old_value !== null
+                  ? formatCurrency(entry.old_value)
+                  : '—'
+              }}
+            </td>
+            <td class="new-value">{{ formatCurrency(entry.new_value) }}</td>
+            <td class="change-indicator">
+              <span
+                class="badge"
+                [class]="{
+                  'badge-new': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'new',
+                  'badge-up': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'up',
+                  'badge-down': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'down',
+                  'badge-neutral': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'neutral'
+                }"
+              >
+                <i
+                  class="fas"
+                  [ngClass]="{
+                    'fa-star': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'new',
+                    'fa-arrow-up': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'up',
+                    'fa-arrow-down': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'down',
+                    'fa-minus': getPriceChangeIndicator(entry.old_value, entry.new_value) === 'neutral'
+                  }"
+                ></i>
+                {{
+                  entry.old_value !== null
+                    ? Math.abs(
+                        getPriceChangePercentage(entry.old_value, entry.new_value)
+                      ).toFixed(1) + '%'
+                    : 'New'
+                }}
+              </span>
+            </td>
+            <td class="timestamp">
+              {{ formatDate(entry.changed_at) }}
+            </td>
+            <td class="changed-by">{{ entry.changed_by }}</td>
+            <td class="reason">
+              <span class="reason-text" *ngIf="entry.reason; else noReason">
+                {{ entry.reason }}
+              </span>
+              <ng-template #noReason>
+                <span class="no-reason">—</span>
+              </ng-template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ng-template #noHistoryTemplate>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No pricing history available</p>
+        </div>
+      </ng-template>
+
+      <!-- Pagination Controls -->
+      <div class="pagination" *ngIf="historyTotalPages > 1">
+        <button
+          class="pagination-btn prev-btn"
+          (click)="previousHistoryPage()"
+          [disabled]="historyCurrentPage === 1"
+          title="Previous page"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <div class="pagination-numbers">
+          <button
+            *ngIf="getHistoryPageNumbers()[0] > 1"
+            class="pagination-btn"
+            (click)="goToHistoryPage(1)"
+          >
+            1
+          </button>
+
+          <span
+            *ngIf="getHistoryPageNumbers()[0] > 2"
+            class="pagination-ellipsis"
+          >
+            ...
+          </span>
+
+          <button
+            *ngFor="let page of getHistoryPageNumbers()"
+            class="pagination-btn"
+            [class.active]="page === historyCurrentPage"
+            (click)="goToHistoryPage(page)"
+          >
+            {{ page }}
+          </button>
+
+          <span
+            *ngIf="
+              getHistoryPageNumbers()[getHistoryPageNumbers().length - 1] <
+              historyTotalPages - 1
+            "
+            class="pagination-ellipsis"
+          >
+            ...
+          </span>
+
+          <button
+            *ngIf="
+              getHistoryPageNumbers()[getHistoryPageNumbers().length - 1] <
+              historyTotalPages
+            "
+            class="pagination-btn"
+            (click)="goToHistoryPage(historyTotalPages)"
+          >
+            {{ historyTotalPages }}
+          </button>
+        </div>
+
+        <button
+          class="pagination-btn next-btn"
+          (click)="nextHistoryPage()"
+          [disabled]="historyCurrentPage === historyTotalPages"
+          title="Next page"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Update Price Modal -->
+  <div
+    class="modal-overlay"
+    *ngIf="showUpdatePriceModal"
+    (click)="closeUpdatePriceModal()"
+  >
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-edit"></i> Update
+          {{ selectedPriceKey ? priceLabels[selectedPriceKey] : 'Price' }}
+        </h3>
+        <button class="btn-close" (click)="closeUpdatePriceModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form (ngSubmit)="submitPriceUpdate()">
+          <div class="form-group">
+            <label for="price-value">New Price Value:</label>
+            <input
+              id="price-value"
+              type="number"
+              [(ngModel)]="updatePriceValue"
+              name="updatePriceValue"
+              min="0"
+              step="0.0001"
+              class="form-input"
+              required
+            />
+            <span class="form-hint">€/hour</span>
+          </div>
+
+          <div class="form-group">
+            <label for="price-reason">Reason for Update (Optional):</label>
+            <textarea
+              id="price-reason"
+              [(ngModel)]="updatePriceReason"
+              name="updatePriceReason"
+              class="form-textarea"
+              placeholder="e.g., Price adjustment due to vendor change"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">
+              <i class="fas fa-save"></i> Update Price
+            </button>
+            <button
+              type="button"
+              class="btn-secondary"
+              (click)="closeUpdatePriceModal()"
+            >
+              <i class="fas fa-times"></i> Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Update Modal -->
+  <div
+    class="modal-overlay"
+    *ngIf="showBulkUpdateModal"
+    (click)="closeBulkUpdateModal()"
+  >
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-edit"></i> Bulk Update Prices
+        </h3>
+        <button class="btn-close" (click)="closeBulkUpdateModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form (ngSubmit)="submitBulkUpdate()">
+          <div class="bulk-form-grid">
+            <div class="form-group">
+              <label for="bulk-cpu">{{ priceLabels['cpu_core_price_per_hour'] }}:</label>
+              <input
+                id="bulk-cpu"
+                type="number"
+                [(ngModel)]="bulkUpdateValues.cpu_core_price_per_hour"
+                name="bulkCpu"
+                min="0"
+                step="0.0001"
+                class="form-input"
+                placeholder="Leave blank to keep current"
+              />
+              <span class="form-hint">€/core/hour</span>
+            </div>
+
+            <div class="form-group">
+              <label for="bulk-ram">{{ priceLabels['ram_gb_price_per_hour'] }}:</label>
+              <input
+                id="bulk-ram"
+                type="number"
+                [(ngModel)]="bulkUpdateValues.ram_gb_price_per_hour"
+                name="bulkRam"
+                min="0"
+                step="0.0001"
+                class="form-input"
+                placeholder="Leave blank to keep current"
+              />
+              <span class="form-hint">€/GB/hour</span>
+            </div>
+
+            <div class="form-group">
+              <label for="bulk-storage">{{ priceLabels['storage_gb_price_per_hour'] }}:</label>
+              <input
+                id="bulk-storage"
+                type="number"
+                [(ngModel)]="bulkUpdateValues.storage_gb_price_per_hour"
+                name="bulkStorage"
+                min="0"
+                step="0.0001"
+                class="form-input"
+                placeholder="Leave blank to keep current"
+              />
+              <span class="form-hint">€/GB/hour</span>
+            </div>
+          </div>
+
+          <div class="form-group full-width">
+            <label for="bulk-reason">Reason for Update (Optional):</label>
+            <textarea
+              id="bulk-reason"
+              [(ngModel)]="bulkUpdateReason"
+              name="bulkReason"
+              class="form-textarea"
+              placeholder="e.g., Quarterly pricing review"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">
+              <i class="fas fa-save"></i> Apply Updates
+            </button>
+            <button
+              type="button"
+              class="btn-secondary"
+              (click)="closeBulkUpdateModal()"
+            >
+              <i class="fas fa-times"></i> Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Confirmation Modal -->
+  <div
+    class="modal-overlay"
+    *ngIf="showResetConfirmation"
+    (click)="closeResetConfirmation()"
+  >
+    <div class="modal-content modal-confirm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-exclamation-triangle"></i> Reset Prices to Defaults
+        </h3>
+      </div>
+
+      <div class="modal-body">
+        <p class="warning-text">
+          Are you sure you want to reset all prices to their default values?
+          This action cannot be undone.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-danger" (click)="confirmReset()">
+          <i class="fas fa-check"></i> Yes, Reset
+        </button>
+        <button class="btn-secondary" (click)="closeResetConfirmation()">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

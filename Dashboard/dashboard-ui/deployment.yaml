@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-metrics-frontend
+  namespace: k8s-metrics
+  labels:
+    app: k8s-metrics-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-metrics-frontend
+  template:
+    metadata:
+      labels:
+        app: k8s-metrics-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: hamdounisabri/k8s-metrics-frontend:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: API_URL
+              value: "http://51.210.11.109:30800"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-metrics-frontend-service
+  namespace: k8s-metrics
+spec:
+  type: NodePort
+  selector:
+    app: k8s-metrics-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30000

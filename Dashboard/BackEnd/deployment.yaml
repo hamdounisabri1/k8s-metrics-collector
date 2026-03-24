@@ -1,0 +1,84 @@
+---
+# ── PVC for pricing SQLite DB ──────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pricing-pvc
+  namespace: k8s-metrics
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+
+---
+# ── Deployment ─────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-metrics-backend
+  namespace: k8s-metrics
+  labels:
+    app: k8s-metrics-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-metrics-backend
+  template:
+    metadata:
+      labels:
+        app: k8s-metrics-backend
+    spec:
+      containers:
+      - name: backend
+        image: hamdounisabri/k8s-metrics-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: INFLUX_URL
+          value: "http://influxdb-influxdb2.k8s-metrics.svc.cluster.local:80"
+        - name: INFLUX_TOKEN
+          value: "9CqCMAr8fll3EyRiuVi2J0gRdh7RGwmL"
+        - name: INFLUX_ORG
+          value: "influxdata"
+        - name: INFLUX_BUCKET
+          value: "cluster_metrics"
+        - name: PRICING_DB
+          value: "/data/pricing.db"
+        volumeMounts:
+        - name: pricing-data
+          mountPath: /data
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: pricing-data
+        persistentVolumeClaim:
+          claimName: pricing-pvc
+
+---
+# ── Service ────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-metrics-backend
+  namespace: k8s-metrics
+spec:
+  selector:
+    app: k8s-metrics-backend
+  type: NodePort
+  ports:
+  - port: 8000
+    targetPort: 8000
+    nodePort: 30800
